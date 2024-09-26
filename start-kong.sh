@@ -1,18 +1,15 @@
 # Delete the Kong Gateway container
-docker rm -f kong-gateway-soap-xml-handling
+docker rm -f kong-gateway-soap-rest-lib
 
 export ARCHITECTURE=arm64
 
 # Start Kong Gateway
-docker run -d --name kong-gateway-soap-xml-handling \
+docker run -d --name kong-gateway-soap-rest-converter \
 --network=kong-net \
---link kong-database-soap-xml-handling:kong-database-soap-xml-handling \
---mount type=bind,source="$(pwd)"/kong/plugins/soap-xml-request-handling,destination=/usr/local/share/lua/5.1/kong/plugins/soap-xml-request-handling \
---mount type=bind,source="$(pwd)"/kong/plugins/soap-xml-response-handling,destination=/usr/local/share/lua/5.1/kong/plugins/soap-xml-response-handling \
---mount type=bind,source="$(pwd)"/kong/plugins/soap-xml-handling-lib,destination=/usr/local/share/lua/5.1/kong/plugins/soap-xml-handling-lib \
+--mount type=bind,source="$(pwd)"/kong/plugins/soap-rest-converter,destination=/usr/local/share/lua/5.1/kong/plugins/soap-rest-converter \
 --mount type=bind,source="$(pwd)"/kong/saxon/so/$ARCHITECTURE,destination=/usr/local/lib/kongsaxon \
 -e "KONG_DATABASE=postgres" \
--e "KONG_PG_HOST=kong-database-soap-xml-handling" \
+-e "KONG_PG_HOST=kong-database" \
 -e "KONG_PG_USER=kong" \
 -e "KONG_PG_PASSWORD=kongpass" \
 -e "KONG_PROXY_ACCESS_LOG=/dev/stdout" \
@@ -23,7 +20,7 @@ docker run -d --name kong-gateway-soap-xml-handling \
 -e "KONG_ADMIN_LISTEN=0.0.0.0:7001, 0.0.0.0:7444 ssl http2" \
 -e "KONG_ADMIN_GUI_LISTEN=0.0.0.0:7002, 0.0.0.0:7445 ssl" \
 -e "KONG_ADMIN_GUI_URL=http://localhost:7002" \
--e "KONG_PLUGINS=bundled,soap-xml-request-handling,soap-xml-response-handling" \
+-e "KONG_PLUGINS=bundled,soap-rest-converter" \
 -e "KONG_NGINX_WORKER_PROCESSES=1" \
 -e "KONG_LOG_LEVEL=debug" \
 -e "LD_LIBRARY_PATH=/usr/local/lib/kongsaxon" \
@@ -34,12 +31,12 @@ docker run -d --name kong-gateway-soap-xml-handling \
 -p 7002:7002 \
 -p 7444:7444 \
 --platform linux/$ARCHITECTURE \
-kong/kong-gateway:3.7.1.1
+kong/kong-gateway:3.8.0.0
 
-#kong/kong-gateway:3.7.1.1
-#-e "LD_LIBRARY_PATH=/usr/local/lib/kongsaxon" \
-#--mount type=bind,source="$(pwd)"/kong/saxon/so/$ARCHITECTURE,destination=/usr/local/lib/kongsaxon \
+# You can also directly used this image:
+# docker run -d --name kong-gateway-soap-rest-converter \
+# ajacquemin16/kong-soap2rest
+# --mount type=bind,source="$(pwd)"/kong/saxon/so/$ARCHITECTURE,destination=/usr/local/lib/kongsaxon \
+# -e "LD_LIBRARY_PATH=/usr/local/lib/kongsaxon" \
 
-#jeromeguillaume/kong-saxon-12-5:3.7.1.1
-
-echo 'docker logs kong-gateway-soap-xml-handling -f'
+echo 'docker logs kong-gateway-soap-rest-converter -f'

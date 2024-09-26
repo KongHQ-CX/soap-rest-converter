@@ -1,34 +1,33 @@
-# Kong plugins: SOAP/XML Handling for Request and Response
-This repository concerns Kong plugins developed in Lua and uses the GNOME C libraries [libxml2](https://gitlab.gnome.org/GNOME/libxml2#libxml2) and [libxslt](https://gitlab.gnome.org/GNOME/libxslt#libxslt) (for XSLT 1.0). Part of the functions are bound in the [XMLua/libxml2](https://clear-code.github.io/xmlua/) library.
+# Kong plugins: SOAP to Rest Converter Plugin
+This repository concerns Kong plugins developed in Lua and uses the GNOME C libraries [libxml2](https://gitlab.gnome.org/GNOME/libxml2#libxml2). Part of the functions are bound in the [XMLua/libxml2](https://clear-code.github.io/xmlua/) library.
 Both GNOME C and XMLua/libxml2 libraries are already included in [kong/kong-gateway](https://hub.docker.com/r/kong/kong-gateway) Enterprise Edition Docker image, so you don't need to rebuild a Kong image.
 
-The XSLT Transformation can also be managed with the [saxon](https://www.saxonica.com/html/welcome/welcome.html) library, which supports XSLT 2.0 and 3.0. With XSLT 2.0+ there is a way for applying JSON <-> XML transformation with [fn:json-to-xml](https://www.w3.org/TR/xslt-30/#func-json-to-xml) and [fn:xml-to-json](https://www.w3.org/TR/xslt-30/#func-xml-to-json). The saxon library is not included in the Kong Docker image, see [SAXON.md](SAXON.md) for how to integrate saxon with Kong.
+The XSLT Transformation is managed with the [saxon](https://www.saxonica.com/html/welcome/welcome.html) library, which supports XSLT 2.0 and 3.0. With XSLT 2.0+ there is a way for applying JSON <-> XML transformation with [fn:json-to-xml](https://www.w3.org/TR/xslt-30/#func-json-to-xml) and [fn:xml-to-json](https://www.w3.org/TR/xslt-30/#func-xml-to-json). The saxon library is not included in the Kong Docker image, see [SAXON.md](SAXON.md) for how to integrate saxon with Kong.
 
 These plugins don't apply to Kong OSS. They work for Kong EE and Konnect.
 
-The plugins handle the SOAP/XML **Request** and/or the SOAP/XML **Response** in this order:
+The plugins handle the **Soap to Rest**  and the **Rest to Soap** conversion:
 
-**soap-xml-request-handling** plugin to handle Request:
+**soap-2-rest**:
 
 1) `XSLT TRANSFORMATION - BEFORE XSD`: Transform the XML request with XSLT (XSLTransformation) before step #2
-2) `WSDL/XSD VALIDATION`: Validate XML request with its WSDL/XSD schema
+2) `AUTH TRANSFER`: Retrieve and pass the authentication
 3) `XSLT TRANSFORMATION - AFTER XSD`: Transform the XML request with XSLT (XSLTransformation) after step #2
-4) `ROUTING BY XPATH`: change the Route of the request to a different hostname and path depending of XPath condition
+4) `ERROR CHEKCING`: check the error depending of XPath
 
-**soap-xml-response-handling** plugin to handle Reponse:
+**rest-2-soap**:
 
-5) `XSLT TRANSFORMATION - BEFORE XSD`: Transform the XML response before step #6
-6) `WSDL/XSD VALIDATION`: Validate the XML response with its WSDL/XSD schema
-7) `XSLT TRANSFORMATION - AFTER XSD`:  Transform the XML response after step #6
+1) `XSLT TRANSFORMATION - BEFORE XSD`: Transform the XML request with XSLT (XSLTransformation) before step #2
+2) `AUTH TRANSFER`: Retrieve and pass the authentication
+3) `XSLT TRANSFORMATION - AFTER XSD`: Transform the XML request with XSLT (XSLTransformation) after step #2
+4) `ERROR CHEKCING`: check the error depending of XPath
 
 Each handling is optional. In case of misconfiguration the Plugin sends to the consumer an HTTP 500 Internal Server Error `<soap:Fault>` (with the error detailed message).
-
-![Alt text](/images/Pipeline-Kong-soap-xml-handling.png?raw=true "Kong - SOAP/XML execution pipeline")
 
 ![Alt text](/images/Kong-Manager.png?raw=true "Kong - Manager")
 
 
-## `soap-xml-request-handling` and `soap-xml-response-handling` configuration reference
+## configuration reference
 |FORM PARAMETER                 |DEFAULT          |DESCRIPTION                                                 |
 |:------------------------------|:----------------|:-----------------------------------------------------------|
 |config.ExternalEntityLoader_Async|false|Download asynchronously the XSD schema from an external entity (i.e.: http(s)://)|
