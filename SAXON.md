@@ -56,7 +56,7 @@ make kong_saxon_initcontainer_docker_hub
 ### Run `Kong` with `Saxon` in Docker with the standard image: `kong/kong-gateway`
 - Include in your `docker run` command:
   ```sh
-  docker run -d --name kong-gateway-soap-xml-handling \
+  docker run -d --name kong-gateway-soap-rest-converter \
   ...
   --mount type=bind,source="$(pwd)"/kong/saxon/so/$ARCHITECTURE,destination=/usr/local/lib/kongsaxon \
   -e "LD_LIBRARY_PATH=/usr/local/lib/kongsaxon" \
@@ -67,7 +67,7 @@ make kong_saxon_initcontainer_docker_hub
 ### Run `Kong` with `Saxon` in Docker or Kubernetes with the customized image: `jeromeguillaume/kong-saxon-12-5`
 - Docker
 ```sh
-docker run -d --name kong-gateway-soap-xml-handling \
+docker run -d --name kong-gateway-soap-rest-converter \
 ...
 jeromeguillaume/kong-saxon-12-5:3.7.1.1
 ```
