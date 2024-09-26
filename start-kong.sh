@@ -33,10 +33,10 @@ docker run -d --name kong-gateway-soap-rest-converter \
 --platform linux/$ARCHITECTURE \
 kong/kong-gateway:3.8.0.0
 
-# You can also directly used this image:
+# You can also directly used this image that already has the lib and plugins installed:
 # docker run -d --name kong-gateway-soap-rest-converter \
-# ajacquemin16/kong-soap2rest
-# --mount type=bind,source="$(pwd)"/kong/saxon/so/$ARCHITECTURE,destination=/usr/local/lib/kongsaxon \
-# -e "LD_LIBRARY_PATH=/usr/local/lib/kongsaxon" \
+# ajacquemin16/kong-soap2rest:1.0.0.0-arm64
+# -e "KONG_DATABASE=postgres" \
+# ....
 
 echo 'docker logs kong-gateway-soap-rest-converter -f'
