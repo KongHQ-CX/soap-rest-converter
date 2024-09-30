@@ -11,7 +11,7 @@ return {
         fields = {
           { xsltTransformRequest = { type = "string", required = true }, },
           { xsltTransformResponse = { type = "string", required = true }, },
-          { RequestAuthorizationLocation = {required = true, type = "string", default = "none",
+          { RequestAuthorizationLocation = {required = false, type = "string", default = "none",
             one_of = {
               "none",
               "header",
@@ -20,7 +20,7 @@ return {
           }},
           { RequestAuthorizationHeader = { type = "string", required = false, default = "Authorization" }, },
           { RequestAuthorizationXPath = { type = "array", required = false, elements = { type = "string" }}, },
-          { ResponseAuthorizationLocation = {required = true, type = "string", default = "none",
+          { ResponseAuthorizationLocation = {required = false, type = "string", default = "none",
             one_of = {
               "none",
               "header",
@@ -28,7 +28,7 @@ return {
             },
           }},
           { ResponseAuthorizationHeader = { type = "string", required = false, default = "Authorization" }, },
-          { FailIfAuthError = { type = "boolean", required = true, default = false }, },
+          { FailIfAuthError = { type = "boolean", required = false, default = false }, },
           { ExternalDataCacheTTL = { type = "integer", default = 300, required = false }, },
           { ExternalDataTimeout = { type = "integer", default = 2, required = false }, },
           { ErrorXPath = { type = "string", required = false }, },

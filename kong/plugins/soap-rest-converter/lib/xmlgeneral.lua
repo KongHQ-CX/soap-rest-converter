@@ -1,5 +1,7 @@
 local xmlgeneral = {}
 
+local cjson             = require("cjson")
+local xmlua             = require("xmlua")
 local ffi               = require("ffi")
 local libxml2           = require("xmlua.libxml2")
 local libsaxon4kong     = require("kong.plugins.soap-rest-converter.lib.libsaxon4kong")
@@ -13,6 +15,9 @@ xmlgeneral.SepTextError       = " - "
 xmlgeneral.XSLTError          = "XSLT transformation failed"
 xmlgeneral.XMLContentType     = "text/xml; charset=utf-8"
 xmlgeneral.JsonContentType    = "application/json"
+xmlgeneral.XMLContentTypeBody     = 1
+xmlgeneral.JSONContentTypeBody    = 2
+xmlgeneral.unknownContentTypeBody = 3
 
 local HTTP_ERROR_MESSAGES = {
     [400] = "Bad request",
@@ -83,7 +88,7 @@ function xmlgeneral.formatSoapFault(VerboseResponse, ErrMsg, ErrEx, contentTypeJ
       if detailErrMsg:sub(-1) ~= '.' then
         detailErrMsg = detailErrMsg .. '.'
       end
-      local additionalErrMsg = "Server HTTP code: " .. tostring(status)      
+      local additionalErrMsg = "SOAP/XML Web Service - HTTP code: " .. tostring(status)      
       detailErrMsg = detailErrMsg .. " " .. additionalErrMsg
     end
   end
@@ -126,7 +131,7 @@ end
 -----------------------------------------------------
 -- Add the HTTP Error code to the SOAP Fault message
 -----------------------------------------------------
-function xmlgeneral.addHttpErrorCodeToSoapFault(VerboseResponse, contentTypeJSON)
+function xmlgeneral.addHttpErorCodeToSoapFault(VerboseResponse, contentTypeJSON)
   local soapFaultBody
   
   local msg = HTTP_ERROR_MESSAGES[kong.response.get_status()]
@@ -146,25 +151,165 @@ function xmlgeneral.returnSoapFault(plugin_conf, HTTPcode, soapErrMsg, contentTy
   if contentTypeJSON == false then
     contentType = xmlgeneral.XMLContentType
   else
-    contentType = xmlgeneral.JsonContentType
+    contentType = xmlgeneral.JSONContentType
   end
   -- Send a Fault code to client
-
   return kong.response.exit(HTTPcode, soapErrMsg, {["Content-Type"] = contentType})
 end
 
------------------------------------------------------------------------
--- Initialize the ContentTypeJSON table for keeping the 'Content-Type'
------------------------------------------------------------------------
+--------------------------------------------------------------------------------------
+-- Initialize the ContentTypeJSON table for keeping the 'Content-Type' of the Request
+--------------------------------------------------------------------------------------
 function xmlgeneral.initializeContentTypeJSON ()
   -- If the 'kong.ctx.shared.contentTypeJSON' is not already created (by the Request plugin)
   if not kong.ctx.shared.contentTypeJSON then
     kong.ctx.shared.contentTypeJSON = {}
     -- Get the 'Content-Type' to define the type of a potential Error message (sent by the plugin): SOAP/XML or JSON
     local contentType = kong.request.get_header("Content-Type")
-    kong.ctx.shared.contentTypeJSON.request = contentType == 'application/json' or 
-                                              contentType == 'application/vnd.api+json'
+    kong.ctx.shared.contentTypeJSON.request = xmlgeneral.compareToJSONType(contentType)
   end
+end
+
+----------------------------------------------------------------
+-- Return true if the contentType is JSON type, false otherwise
+----------------------------------------------------------------
+function xmlgeneral.compareToJSONType (contentType)
+  return contentType == 'application/json' or contentType == 'application/vnd.api+json'
+end
+
+----------------------------------------------------------------
+-- Return true if the string is an URL format, false otherwise
+----------------------------------------------------------------
+function xmlgeneral.isUrl(str)
+  -- Simple pattern to check if the string is a URL
+  local pattern = "^https?://[%w-_%.%?%.:/%+=&]+"
+  return str:match(pattern) ~= nil
+end
+
+----------------------------------------------------------------
+-- Return the credentials extracted from the request
+----------------------------------------------------------------
+function xmlgeneral.extractAuthData(plugin_conf)
+  local errMessage
+  local authData
+  local authToExtract = plugin_conf.RequestAuthorizationLocation
+  local auth_types_extract = { header = true, xPath = true }
+
+  if auth_types_extract[authToExtract] then
+    if authToExtract == "xPath" then
+      authData = xmlgeneral.retrieveAuthDataFromXPath (kong, request_body, 
+                                            plugin_conf.RequestAuthorizationXPath, plugin_conf.RouteXPathRegisterNs)
+      if #authData ~= #plugin_conf.RequestAuthorizationXPath then
+        errMessage = "Some Xpath not Found"
+      end
+    else 
+      authData = kong.request.get_header(plugin_conf.RequestAuthorizationHeader)
+      if authData == nil then
+        errMessage = "no data found in header " .. plugin_conf.RequestAuthorizationHeader
+      end
+    end
+
+    if errMessage ~= nil and plugin_conf.FailIfAuthError then
+      errMessage = "The authentication is not present and mandatory! Error: " .. errMessage
+      -- Format a Fault code to Client
+      return nil, xmlgeneral.formatSoapFault (plugin_conf.VerboseError,
+                                                  xmlgeneral.RequestTextError .. xmlgeneral.SepTextError .. xmlgeneral.GeneralError,
+                                                  errMessage,
+                                                  contentTypeJSON)
+    end
+  end
+
+  return authData
+end
+
+----------------------------------------------------------------
+-- Send the credentials extracted from the request
+----------------------------------------------------------------
+function xmlgeneral.sendAuthData(plugin_conf, authData)
+  local errMessage
+  local authToUpstream = plugin_conf.ResponseAuthorizationLocation
+  local auth_types_upstream = { header = true, xsltTemplate = true }
+
+  if auth_types_upstream[authToUpstream] and authData ~= nil then
+    if authToUpstream == "xsltTemplate" then
+      if type(authData) == "table" then
+        local check1
+        local check2
+        request_body_transformed, check1 = request_body_transformed:gsub("$AUTH1", authData[1])
+        request_body_transformed, check2 = request_body_transformed:gsub("$AUTH2", authData[2])
+        if check1 + check2 ~= 2 then
+          errMessage = "$AUTH1 or $AUTH2 placeholders not found in the xslt template, please check!"
+        end
+      else
+        local check
+        request_body_transformed, check = request_body_transformed:gsub("$AUTH1", authData)
+        if check == 0 then
+          errMessage = "$AUTH1 placeholder not found in the xslt template, please check!"
+        end
+      end
+
+    end
+
+    if authToUpstream == "header" then
+      if #authData == 2 then
+        authData = "Basic " .. base64_encode(authData[1] .. ":" .. authData[2])
+      end
+
+      kong.service.request.set_header(plugin_conf.ResponseAuthorizationHeader, authData)
+    end
+  end
+
+  if errMessage ~= nil and plugin_conf.FailIfAuthError then
+    errMessage = "The authentication was not replaced and is mandatory! Error: " .. errMessage 
+    -- Format a Fault code to Client
+    return xmlgeneral.formatSoapFault (plugin_conf.VerboseError,
+                                                xmlgeneral.RequestTextError .. xmlgeneral.SepTextError .. xmlgeneral.GeneralError,
+                                                errMessage,
+                                                contentTypeJSON)
+  end
+end
+
+----------------------------------------------------------------
+-- Return the content downloaded from the url
+----------------------------------------------------------------
+function xmlgeneral.downLoadDataFromUrl (url, timeout)
+  kong.log.debug("Downloading the xsd data from ", url)
+  local http = require "resty.http"
+  local httpc = http.new()  
+  
+  httpc:set_timeout(timeout * 1000)
+  local res, err = httpc:request_uri(url, {
+    method = 'GET',
+    ssl_verify = false,
+  })
+  if not res or res.status ~= 200 then
+    -- We don't update the 'body' and 'httpStatus' and give the user a chance to have the cached value
+    local errMsg = "Error when downloading data from " .. url .. " with status: " .. res.status
+    if err then
+      errMsg = errMsg .. " and error: " .. err
+    end
+    return nil, errMsg
+  end
+  
+  return res.body
+end
+
+----------------------------------------------------------------
+-- Check Response content, return error message if contentType is wrong
+----------------------------------------------------------------
+function xmlgeneral.checkResponseContent(responseBody, contentTypeJSON)
+  local errMessage
+  if contentTypeJSON then
+    if not pcall(function() return xmlua.XML.parse(responseBody) end) then
+      errMessage = "Response is not a valid XML"
+    end
+  else
+    if not pcall(function() return cjson.decode(responseBody) end) then
+      errMessage = "Response is not a valid JSON"
+    end
+  end
+
+  return errMessage
 end
 
 ----------------------------
@@ -176,8 +321,8 @@ function xmlgeneral.initializeSaxon()
   if not kong.xmlSoapSaxon then
     kong.log.debug ("initializeSaxon: it's the 1st time the function is called => initialize the 'saxon' library")
     kong.xmlSoapSaxon = {}
-    kong.xmlSoapSaxon.saxonProcessor    = nil
-    kong.xmlSoapSaxon.xslt30Processor   = nil
+    kong.xmlSoapSaxon.saxonProcessor    = ffi.NULL
+    kong.xmlSoapSaxon.xslt30Processor   = ffi.NULL
     
     -- Load the Saxon for kong Shared Object
     kong.log.debug ("initializeSaxon: loadSaxonforKongLibrary")
@@ -205,7 +350,7 @@ function xmlgeneral.initializeSaxon()
       kong.log.debug ("initializeSaxon: errMessage: " .. errMessage)
     end
   else
-    kong.log.debug ("initializeSaxon: Saxon is already initialized => nothing to do")
+    kong.log.debug ("initializeSaxon: 'saxon' is already initialized => nothing to do")
   end
 end
 
@@ -306,7 +451,6 @@ function xmlgeneral.XPathContent (kong, XMLtoSearch, XPath, XPathRegisterNs)
     end
   end
 
-  
   local object = libxml2.xmlXPathEvalExpression(XPath, context)
   
   if object ~= ffi.NULL then  

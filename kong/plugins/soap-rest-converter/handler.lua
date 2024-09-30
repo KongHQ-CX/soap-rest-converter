@@ -1,7 +1,6 @@
 local KongGzip        = require("kong.tools.gzip")
 local sha256_hex      = require("kong.tools.sha256").sha256_hex
 local base64_encode   = require "kong.openid-connect.codec".base64.encode
-local utils           = require "kong.plugins.soap-rest-converter.lib.utils"
 local xmlgeneral      = require("kong.plugins.soap-rest-converter.lib.xmlgeneral")
 
 -- handler.lua
@@ -24,13 +23,13 @@ function plugin:requestTransformHandling(plugin_conf, requestBody, contentTypeJS
 
   local templateTransformBefore = plugin_conf.xsltTransformRequest
 
-  if utils.is_url(templateTransformBefore) then
+  if xmlgeneral.isUrl(templateTransformBefore) then
     -- Calculate a cache key based on the URL using the hash_key function.
     local url_cache_key = sha256_hex("templateTransformBefore")
     local timeout = plugin_conf.ExternalDataTimeout
 
     -- Retrieve the response_body from cache, with a TTL (in seconds), using the 'syncDownloadEntities' function.
-    templateTransformBefore, errMessage = kong.cache:get(url_cache_key, { ttl = plugin_conf.ExternalDataCacheTTL }, utils.downLoadDataFromUrl, templateTransformBefore, timeout)
+    templateTransformBefore, errMessage = kong.cache:get(url_cache_key, { ttl = plugin_conf.ExternalDataCacheTTL }, xmlgeneral.downLoadDataFromUrl, templateTransformBefore, timeout)
     
     if errMessage ~= nil then
       errMessage = "Error when retrieving the xslt template: " .. errMessage
@@ -44,13 +43,13 @@ function plugin:requestTransformHandling(plugin_conf, requestBody, contentTypeJS
 
   -- we need to download in the access phase
   kong.ctx.shared.xsltTransformResponse = plugin_conf.xsltTransformResponse
-  if utils.is_url(plugin_conf.xsltTransformResponse) then
+  if xmlgeneral.isUrl(plugin_conf.xsltTransformResponse) then
     -- Calculate a cache key based on the URL using the hash_key function.
     local url_cache_key = sha256_hex(plugin_conf.xsltTransformResponse)
     local timeout = plugin_conf.ExternalDataTimeout
 
     -- Retrieve the response_body from cache, with a TTL (in seconds), using the 'syncDownloadEntities' function.
-    kong.ctx.shared.xsltTransformResponse, errMessage = kong.cache:get(url_cache_key, { ttl = plugin_conf.ExternalDataCacheTTL }, utils.downLoadDataFromUrl, plugin_conf.xsltTransformResponse, timeout)
+    kong.ctx.shared.xsltTransformResponse, errMessage = kong.cache:get(url_cache_key, { ttl = plugin_conf.ExternalDataCacheTTL }, xmlgeneral.downLoadDataFromUrl, plugin_conf.xsltTransformResponse, timeout)
     
     if errMessage ~= nil then
       errMessage = "Error when retrieving the xslt template: " .. errMessage
@@ -138,7 +137,7 @@ function plugin:responseSOAPXMLhandling(plugin_conf, responseBody, contentTypeJS
   -- Check response content is correct
   -- JSON if rest 
   -- XML is Soap
-  errMessage = utils.checkResponseContent(responseBody, contentTypeJSON)
+  errMessage = xmlgeneral.checkResponseContent(responseBody, contentTypeJSON)
 
   if errMessage ~= nil then
     -- Format a Fault code to Client
@@ -191,98 +190,23 @@ function plugin:access(plugin_conf)
   
   -- If there is no error Retrieve authentication data
   if soapFaultBody == nil then
-    local errMessage
-    local authToExtract = plugin_conf.RequestAuthorizationLocation
-    local auth_types_extract = { header = true, xPath = true }
-
-    if auth_types_extract[authToExtract] then
-      if authToExtract == "xPath" then
-        authData = xmlgeneral.retrieveAuthDataFromXPath (kong, request_body, 
-                                              plugin_conf.RequestAuthorizationXPath, plugin_conf.RouteXPathRegisterNs)
-        if #authData ~= #plugin_conf.RequestAuthorizationXPath then
-          errMessage = "Some Xpath not Found"
-        end
-      else 
-        authData = kong.request.get_header(plugin_conf.RequestAuthorizationHeader)
-        if authData == nil then
-          errMessage = "no data found in header " .. plugin_conf.RequestAuthorizationHeader
-        end
-      end
-
-      if errMessage ~= nil and plugin_conf.FailIfAuthError then
-        errMessage = "The authentication is not present and mandatory! Error: " .. errMessage
-        -- Format a Fault code to Client
-        soapFaultBody = xmlgeneral.formatSoapFault (plugin_conf.VerboseError,
-                                                    xmlgeneral.RequestTextError .. xmlgeneral.SepTextError .. xmlgeneral.GeneralError,
-                                                    errMessage,
-                                                    contentTypeJSON)
-      end
-    end
+    authData, soapFaultBody = xmlgeneral.extractAuthData(plugin_conf)
   end
   
   -- If there is no error Send authentication data
   if soapFaultBody == nil and authData ~= nil then
-    local errMessage
-    local authToUpstream = plugin_conf.ResponseAuthorizationLocation
-    local auth_types_upstream = { header = true, xsltTemplate = true }
-
-    if auth_types_upstream[authToUpstream] and authData ~= nil then
-      if authToUpstream == "xsltTemplate" then
-        if type(authData) == "table" then
-          local check1
-          local check2
-          request_body_transformed, check1 = request_body_transformed:gsub("$AUTH1", authData[1])
-          request_body_transformed, check2 = request_body_transformed:gsub("$AUTH2", authData[2])
-          if check1 + check2 ~= 2 then
-            errMessage = "$AUTH1 or $AUTH2 placeholders not found in the xslt template, please check!"
-          end
-        else
-          local check
-          request_body_transformed, check = request_body_transformed:gsub("$AUTH1", authData)
-          if check == 0 then
-            errMessage = "$AUTH1 placeholder not found in the xslt template, please check!"
-          end
-        end
-
-      end
-
-      if authToUpstream == "header" then
-        if #authData == 2 then
-          authData = "Basic " .. base64_encode(authData[1] .. ":" .. authData[2])
-        end
-
-        kong.service.request.set_header(plugin_conf.ResponseAuthorizationHeader, authData)
-      end
-    end
-
-    if errMessage ~= nil and plugin_conf.FailIfAuthError then
-      errMessage = "The authentication was not replaced and is mandatory! Error: " .. errMessage 
-      -- Format a Fault code to Client
-      soapFaultBody = xmlgeneral.formatSoapFault (plugin_conf.VerboseError,
-                                                  xmlgeneral.RequestTextError .. xmlgeneral.SepTextError .. xmlgeneral.GeneralError,
-                                                  errMessage,
-                                                  contentTypeJSON)
-    end
+    soapFaultBody = xmlgeneral.sendAuthData(plugin_conf, authData)
   end
 
   -- If there is an error during SOAP/XML we change the HTTP status code and
   -- the Body content (with the detailed error message) will be changed by 'body_filter' phase
   if soapFaultBody ~= nil then
-    -- Set the Global Fault Code to the "Request and Response SOAP/XML handling" plugins 
-    -- It prevents to apply other XML/SOAP handling whereas there is already an error
-    kong.ctx.shared.xmlSoapHandlingFault = {
-      error = true,
-      otherPlugin = false,
-      priority = plugin.PRIORITY,
-      soapEnvelope = soapFaultBody
-    }
-
     -- Return a Fault code to Client
     return xmlgeneral.returnSoapFault (plugin_conf,
                                       xmlgeneral.HTTPCodeSOAPFault,
                                       soapFaultBody,
                                       kong.ctx.shared.contentTypeJSON.request)
-end
+  end
 
   -- If the SOAP Body request has been changed (for instance, the XPath Routing alone doesn't change it)
   if request_body_transformed then
@@ -305,9 +229,8 @@ end
     local errMsg =  "Try calling 'kong.service.request.enable_buffering' with http/" .. ngx.req.http_version() .. 
                     " please use http/1.x instead. The plugin is disabled"
 
-    kong.ctx.shared.xmlSoapHandlingFault = {
+    kong.ctx.shared.restSoapHandlingFault = {
       error = true,
-      priority = -1,
       soapEnvelope = errMsg
     }
   end
@@ -323,17 +246,14 @@ function plugin:header_filter(plugin_conf)
   local responseBodyDeflated
   local soapFaultBody
   local err
-  
-  -- In case of error set by SOAP/XML plugin, we don't do anything to avoid an issue.
-  -- If we call get_raw_body (), without calling request.enable_buffering(), it will raise an error and 
-  -- it happens when a previous plugin called kong.response.exit(): in this case all 'header_filter' and 'body_filter'
-  -- are called (and the 'access' is not called which enables the enable_buffering())
-  if kong.ctx.shared.xmlSoapHandlingFault and 
-     kong.ctx.shared.xmlSoapHandlingFault.error then
-    kong.log.debug("A pending error has been set by SOAP/XML plugin: we do nothing in this plugin")
+
+  -- In case of error set in previous phases, we don't do anything to avoid an issue.
+  if kong.ctx.shared.restSoapHandlingFault and 
+     kong.ctx.shared.restSoapHandlingFault.error then
+    kong.log.debug("A pending error has been set in previous phases: we do nothing in this phase")
     return
   end
-  
+    
   --  In case of 'request-termination' plugin
   if (kong.response.get_source() == "exit" and kong.response.get_status() == 200) then
     return
@@ -428,9 +348,8 @@ function plugin:header_filter(plugin_conf)
 
     -- Set the Global Fault Code to Request and Response XLM/SOAP plugins 
     -- It prevents to apply XML/SOAP handling whereas there is already an error
-    kong.ctx.shared.xmlSoapHandlingFault = {
+    kong.ctx.shared.restSoapHandlingFault = {
       error = true,
-      priority = plugin.PRIORITY,
       soapEnvelope = soapFaultBody
     }
   -- If the SOAP envelope is transformed
@@ -454,9 +373,8 @@ function plugin:header_filter(plugin_conf)
 
     -- We set the new SOAP Envelope for cascading Plugins because they are not able to retrieve it
     -- by calling 'kong.response.get_raw_body ()' in header_filter
-    kong.ctx.shared.xmlSoapHandlingFault = {
+    kong.ctx.shared.restSoapHandlingFault = {
       error = false,
-      priority = plugin.PRIORITY,
       soapEnvelope = responseBodyTransformed
     }
   end
@@ -469,22 +387,16 @@ end
 -- This function can be called multiple times
 ------------------------------------------------------------------------------------------------------------------
 function plugin:body_filter(plugin_conf)
-  -- If there is a pending error set by SOAP/XML plugin we do nothing except for the Plugin itself
-  if  kong.ctx.shared.xmlSoapHandlingFault      and
-    kong.ctx.shared.xmlSoapHandlingFault.error  and 
-    kong.ctx.shared.xmlSoapHandlingFault.priority ~= plugin.PRIORITY then
-    kong.log.debug("A pending error has been set by SOAP/XML plugin: we do nothing in this plugin")
+  -- In case of error set in previous phases, we don't do anything to avoid an issue.
+  if kong.ctx.shared.restSoapHandlingFault and kong.ctx.shared.restSoapHandlingFault.error then
+    kong.log.debug("A pending error has been set in previous phases: we do nothing in this phase")
     return
   end
 
   -- Get modified SOAP envelope set by the plugin itself on 'header_filter'
-  if  kong.ctx.shared.xmlSoapHandlingFault  and
-      kong.ctx.shared.xmlSoapHandlingFault.priority == plugin.PRIORITY then
-    
-    if kong.ctx.shared.xmlSoapHandlingFault.soapEnvelope then
-      -- Set the modified SOAP envelope
-      kong.response.set_raw_body(kong.ctx.shared.xmlSoapHandlingFault.soapEnvelope)
-    end
+  if kong.ctx.shared.restSoapHandlingFault and kong.ctx.shared.restSoapHandlingFault.soapEnvelope then
+    -- Set the modified SOAP envelope
+    kong.response.set_raw_body(kong.ctx.shared.restSoapHandlingFault.soapEnvelope)
   end
 end
 
