@@ -29,9 +29,8 @@ The plugin handle the **Soap to Rest**  and the **Rest to Soap** conversion:
 
 Each handling is optional. In case of misconfiguration the Plugin sends to the consumer an HTTP 500 Internal Server Error `<soap:Fault>` (with the error detailed message).
 
-</br></br>
 
-## configuration reference
+## configuration references
 |FORM PARAMETER                 |REQUIRE          |DEFAULT          |DESCRIPTION                                                 |
 |:------------------------------|:----------------|:----------------|:-----------------------------------------------------------|
 |config.xsltTransformRequest|TRUE|N/A|`XSLT` template used by `Saxon` to tranform the request|
@@ -243,7 +242,7 @@ Content-Type: text/xml; charset=utf-8
 </soapenv:Envelope>
 ```
 
-**More explanation on the xlst template and transformation could be found [here](/SAXON.md#behind-the-scenes-of-fnjson-to-xml-and-fnxml-to-json-functions)**
+**More explanation on the xlst template and transformation could be found [here!](/SAXON.md#behind-the-scenes-of-fnjson-to-xml-and-fnxml-to-json-functions)**
 
 ## Plugins Testing
 The plugins testing is available through [pongo](https://github.com/Kong/kong-pongo)
