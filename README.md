@@ -25,7 +25,7 @@ The plugin handle the **Soap to Rest**  and the **Rest to Soap** conversion:
 Each handling is optional. In case of misconfiguration the Plugin sends to the consumer an HTTP 500 Internal Server Error `<soap:Fault>` (with the error detailed message).
 
 </br></br>
-<img src="/images/Pipeline-Kong-soap-rest-converter?raw=true" alt="Kong - Manager">
+<img src="/images/Pipeline-Kong-soap-rest-converter.png?raw=true" alt="Kong - Manager">
 </br></br>
 
 ## configuration reference
