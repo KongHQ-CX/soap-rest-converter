@@ -12,5 +12,5 @@
       </xsl:variable>
       <xsl:value-of select="fn:xml-to-json($json-result)" />
    </xsl:template>
-   <xsl:template match="/soapenv:Envelope/soapenv:Header" />
+   <xsl:template match="/soap:Envelope/soap:Header" />
 </xsl:stylesheet>
