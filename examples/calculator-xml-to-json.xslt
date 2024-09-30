@@ -1,4 +1,4 @@
-<xsl:stylesheet version="2.0"
+<xsl:stylesheet version="3.0"
 	xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
 	xmlns="http://www.w3.org/2005/xpath-functions"
 	xmlns:fn="http://www.w3.org/2005/xpath-functions"
@@ -18,4 +18,5 @@
 		</xsl:variable>
 		<xsl:value-of select="fn:xml-to-json($json-result)"/>
 	</xsl:template>
+	<xsl:template match="/soapenv:Envelope/soapenv:Header"/>
 </xsl:stylesheet>
