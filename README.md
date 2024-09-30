@@ -1,4 +1,9 @@
 # Kong plugins: SOAP to Rest Converter Plugin
+
+</br></br>
+<img src="/images/Pipeline-Kong-soap-rest-converter.png?raw=true" alt="Kong - Manager">
+</br></br>
+
 This repository concerns Kong plugins developed in Lua and uses the GNOME C libraries [libxml2](https://gitlab.gnome.org/GNOME/libxml2#libxml2). Part of the functions are bound in the [XMLua/libxml2](https://clear-code.github.io/xmlua/) library.
 Both GNOME C and XMLua/libxml2 libraries are already included in [kong/kong-gateway](https://hub.docker.com/r/kong/kong-gateway) Enterprise Edition Docker image, so you don't need to rebuild a Kong image.
 
@@ -24,8 +29,6 @@ The plugin handle the **Soap to Rest**  and the **Rest to Soap** conversion:
 
 Each handling is optional. In case of misconfiguration the Plugin sends to the consumer an HTTP 500 Internal Server Error `<soap:Fault>` (with the error detailed message).
 
-</br></br>
-<img src="/images/Pipeline-Kong-soap-rest-converter.png?raw=true" alt="Kong - Manager">
 </br></br>
 
 ## configuration reference
