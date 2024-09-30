@@ -24,7 +24,7 @@ return {
             one_of = {
               "none",
               "header",
-              "xsltTemplate",
+              "xPath",
             },
           }},
           { ResponseAuthorizationHeader = { type = "string", required = false, default = "Authorization" }, },

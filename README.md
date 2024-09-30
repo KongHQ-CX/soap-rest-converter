@@ -38,8 +38,9 @@ Each handling is optional. In case of misconfiguration the Plugin sends to the c
 |config.RequestAuthorizationLocation|FALSE|N/A|The location to extract the credentials, either xPath or Header|
 |config.RequestAuthorizationHeader|FALSE|Authorization|The header location used to extract the credentials only when RequestAuthorizationLocation is Header|
 |config.RequestAuthorizationXPath|FALSE|N/A|The xPath location used to extract the credentials only when RequestAuthorizationLocation is xPath|
-|config.ResponseAuthorizationLocation|FALSE|N/A|The location to send the credentials, either xsltTemplate or Header|
+|config.ResponseAuthorizationLocation|FALSE|N/A|The location to send the credentials, either xPath or Header|
 |config.ResponseAuthorizationHeader|FALSE|Authorization|The header location used to send the credentials only when ResponseAuthorizationLocation is Header|
+|config.ResponseAuthorizationXPath|FALSE|N/A|The xPath location used to send the credentials only when ResponseAuthorizationLocation is xPath|
 |config.FailIfAuthError|FALSE|N/A|Stop the request if an error occured during the authentication extraction and sending|
 |config.ExternalDataCacheTTL|FALSE|300|The TTL in seconds to keep the xstl template in cache|
 |config.ExternalDataTimeout|FALSE|300|The timeout in second for the request retrieving the xstl template|

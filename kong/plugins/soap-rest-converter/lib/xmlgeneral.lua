@@ -242,10 +242,10 @@ end
 function xmlgeneral.sendAuthData(plugin_conf, authData, request_body_transformed)
   local errMessage
   local authToUpstream = plugin_conf.ResponseAuthorizationLocation
-  local auth_types_upstream = { header = true, xsltTemplate = true }
+  local auth_types_upstream = { header = true, xPath = true }
 
   if auth_types_upstream[authToUpstream] and authData ~= nil then
-    if authToUpstream == "xsltTemplate" then
+    if authToUpstream == "xPath" then
       if type(authData) == "table" then
         request_body_transformed, errMessage = xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[1], plugin_conf.XPathRegisterNs, authData[1])
         request_body_transformed, errMessage= xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[2], plugin_conf.XPathRegisterNs, authData[2])
