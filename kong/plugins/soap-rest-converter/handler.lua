@@ -20,6 +20,7 @@ function plugin:requestTransformHandling(plugin_conf, requestBody, contentTypeJS
   local errMessage
   local soapFaultBody
   local useTemplate
+  local hit_level
 
   local templateTransformBefore = plugin_conf.xsltTransformRequest
 
@@ -29,10 +30,12 @@ function plugin:requestTransformHandling(plugin_conf, requestBody, contentTypeJS
     local timeout = plugin_conf.ExternalDataTimeout
 
     -- Retrieve the response_body from cache, with a TTL (in seconds), using the 'syncDownloadEntities' function.
-    templateTransformBefore, errMessage = kong.cache:get(url_cache_key, { ttl = plugin_conf.ExternalDataCacheTTL }, xmlgeneral.downLoadDataFromUrl, templateTransformBefore, timeout)
-    
-    if errMessage ~= nil then
+    templateTransformBefore, errMessage, hit_level = kong.cache:get(url_cache_key, { ttl = plugin_conf.ExternalDataCacheTTL }, xmlgeneral.downLoadDataFromUrl, templateTransformBefore, timeout)
+
+    if errMessage ~= nil or hit_level == 4 then
+      errMessage = errMessage or "returning stale value from previous cache value"
       errMessage = "Error when retrieving the xslt template: " .. errMessage
+      kong.cache:invalidate(url_cache_key)
       -- Format a Fault code to Client
       soapFaultBody = xmlgeneral.formatSoapFault (plugin_conf.VerboseError,
                                                   xmlgeneral.RequestTextError .. xmlgeneral.SepTextError .. xmlgeneral.GeneralError,
@@ -49,10 +52,12 @@ function plugin:requestTransformHandling(plugin_conf, requestBody, contentTypeJS
     local timeout = plugin_conf.ExternalDataTimeout
 
     -- Retrieve the response_body from cache, with a TTL (in seconds), using the 'syncDownloadEntities' function.
-    kong.ctx.shared.xsltTransformResponse, errMessage = kong.cache:get(url_cache_key, { ttl = plugin_conf.ExternalDataCacheTTL }, xmlgeneral.downLoadDataFromUrl, plugin_conf.xsltTransformResponse, timeout)
+    kong.ctx.shared.xsltTransformResponse, errMessage, hit_level = kong.cache:get(url_cache_key, { ttl = plugin_conf.ExternalDataCacheTTL }, xmlgeneral.downLoadDataFromUrl, plugin_conf.xsltTransformResponse, timeout)
     
-    if errMessage ~= nil then
+    if errMessage ~= nil or hit_level == 4 then
+      errMessage = errMessage or "returning stale value from previous cache value"
       errMessage = "Error when retrieving the xslt template: " .. errMessage
+      kong.cache:invalidate(url_cache_key)
       -- Format a Fault code to Client
       soapFaultBody = xmlgeneral.formatSoapFault (plugin_conf.VerboseError,
                                                   xmlgeneral.ResponseTextError .. xmlgeneral.SepTextError .. xmlgeneral.GeneralError,
