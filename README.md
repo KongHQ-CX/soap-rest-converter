@@ -24,9 +24,9 @@ The plugin handle the **Soap to Rest**  and the **Rest to Soap** conversion:
 
 Each handling is optional. In case of misconfiguration the Plugin sends to the consumer an HTTP 500 Internal Server Error `<soap:Fault>` (with the error detailed message).
 
-
-![Alt text](/images/Kong-Manager.png?raw=true "Kong - Manager")
-
+</br></br>
+<img src="/images/Pipeline-Kong-soap-rest-converter?raw=true" alt="Kong - Manager">
+</br></br>
 
 ## configuration reference
 |FORM PARAMETER                 |REQUIRE          |DEFAULT          |DESCRIPTION                                                 |
@@ -66,7 +66,7 @@ git clone https://github.com/jeromeguillaume/kong-plugin-soap-xml-handling.git
 ```
 
 5) Check that the plugin is present
- <img src="/images/Kong-Manager.png?raw=true" alt="Kong - Manager" width="400px">
+<img src="/images/Kong-Manager.png?raw=true" alt="Kong - Manager" width="400px">
 
 
 ## Other Deployements
