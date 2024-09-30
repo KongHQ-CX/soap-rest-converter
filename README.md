@@ -250,9 +250,11 @@ Content-Type: text/xml; charset=utf-8
 The plugin is able to extract credentials from the Header of the Xpath from XML request.
 In a similar way is it possible to send these data via the Header or the Xpath to a SOAP services.
 
-### How to extract Xpath credentials from a SOAP requet and forward to the REST request:
+### How to extract Xpath credentials from a SOAP requet and forward to the REST service:
 
 To extract the credentials in the following request just configure the plugin with:
+- `XsltTransformRequest` with the xslt [here](/examples/petstore-xml-to-json.xslt)
+- `XsltTransformResponse` with the xslt [here](/examples/petstore-json-to-xml.xslt)
 - `RequestAuthorizationLocation` property with `XPath`
 - `RequestAuthorizationXPath` with `//wsse:Username` and `//wsse:Password`
 - `ResponseAuthorizationLocation` with `Header`
@@ -286,9 +288,13 @@ If you pass:
 ```
 
 
-### How to extract credentials from a REST requet and forward to the SOAP request:
+### How to extract credentials from a REST requet and forward to the SOAP service:
+
+** You must declare the credentials location in the XLST template. The plugin is not creating the element by default!**
 
 To extract the credentials in the following request just configure the plugin with:
+- `XsltTransformRequest` with the xslt [here](/examples/calculator-json-to-xml-with-auth.xslt)
+- `XsltTransformResponse` with the xslt [here](/examples/calculator-xml-to-json.xslt)
 - `RequestAuthorizationLocation` property with `Header`
 - `RequestAuthorizationXPath` with `Authorization`
 - `ResponseAuthorizationLocation` with `Xpath`
