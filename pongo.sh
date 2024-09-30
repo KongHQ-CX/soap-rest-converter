@@ -13,7 +13,7 @@
 #-------------------------------------------------------------
 # Execute the tests with the customized Kong image with Saxon
 #-------------------------------------------------------------
-KONG_IMAGE=ajacquemin16/kong-soap2rest pongo run --lpath=$PWD/spec/common
+KONG_IMAGE=ajacquemin16/kong-soap2rest:1.1.0.0-arm64 pongo run --lpath=$PWD/spec/common
 
 #---------------------------------------------------------
 # Loop tests

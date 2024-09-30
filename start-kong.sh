@@ -1,5 +1,5 @@
 # Delete the Kong Gateway container
-docker rm -f kong-gateway-soap-rest-lib
+docker rm -f kong-gateway-soap-rest-converter
 
 export ARCHITECTURE=arm64
 
@@ -35,7 +35,7 @@ kong/kong-gateway:3.8.0.0
 
 # You can also directly used this image that already has the lib and plugins installed:
 # docker run -d --name kong-gateway-soap-rest-converter \
-# ajacquemin16/kong-soap2rest:1.0.0.0-arm64
+# ajacquemin16/kong-soap2rest:1.1.0.0-arm64
 # -e "KONG_DATABASE=postgres" \
 # ....
 

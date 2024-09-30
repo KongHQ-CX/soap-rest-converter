@@ -1,0 +1,127 @@
+_format_version: "3.0"
+services:
+- connect_timeout: 60000
+  enabled: true
+  host: www.dneonline.com
+  name: calculator
+  path: /calculator.asmx
+  plugins:
+  - config:
+      ErrorXPath: //faultstring
+      ExternalDataCacheTTL: 5
+      ExternalDataTimeout: 2
+      FailIfAuthError: false
+      RequestAuthorizationHeader: Authorization
+      RequestAuthorizationLocation: none
+      RequestAuthorizationXPath: null
+      ResponseAuthorizationHeader: Authorization
+      ResponseAuthorizationLocation: none
+      ResponseAuthorizationXPath: null
+      VerboseError: true
+      XPathRegisterNs:
+      - soap,http://schemas.xmlsoap.org/soap/envelope
+      - wsse,http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd
+      xsltTransformRequest: https://raw.githubusercontent.com/KongHQ-CX/soap-rest-converter/refs/heads/main/examples/calculator-json-to-xml.xslt
+      xsltTransformResponse: https://raw.githubusercontent.com/KongHQ-CX/soap-rest-converter/refs/heads/main/examples/calculator-xml-to-json.xslt
+    enabled: true
+    instance_name: Calculator-Xml2Json
+    name: soap-rest-converter
+    protocols:
+    - grpc
+    - grpcs
+    - http
+    - https
+  port: 80
+  protocol: http
+  read_timeout: 60000
+  retries: 5
+  routes:
+  - https_redirect_status_code: 426
+    name: calculator
+    path_handling: v0
+    paths:
+    - /calculator
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: true
+  write_timeout: 60000
+- connect_timeout: 60000
+  enabled: true
+  host: petstore.swagger.io
+  name: petstore
+  path: /v2/pet
+  plugins:
+  - config:
+      ErrorXPath: null
+      ExternalDataCacheTTL: 300
+      ExternalDataTimeout: 2
+      FailIfAuthError: false
+      RequestAuthorizationHeader: Authorization
+      RequestAuthorizationLocation: none
+      RequestAuthorizationXPath: null
+      ResponseAuthorizationHeader: Authorization
+      ResponseAuthorizationLocation: none
+      ResponseAuthorizationXPath: null
+      VerboseError: true
+      XPathRegisterNs:
+      - soap,http://schemas.xmlsoap.org/soap/envelope
+      - soapenv,http://schemas.xmlsoap.org/soap/envelope
+      - wsse,http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd
+      xsltTransformRequest: https://raw.githubusercontent.com/KongHQ-CX/soap-rest-converter/refs/heads/main/examples/petstore-xml-to-json.xslt
+      xsltTransformResponse: https://raw.githubusercontent.com/KongHQ-CX/soap-rest-converter/refs/heads/main/examples/petstore-json-to-xml.xslt
+    enabled: true
+    instance_name: Petstore-Json2Xml
+    name: soap-rest-converter
+    protocols:
+    - grpc
+    - grpcs
+    - http
+    - https
+  port: 443
+  protocol: https
+  read_timeout: 60000
+  retries: 5
+  routes:
+  - https_redirect_status_code: 426
+    name: petstore
+    path_handling: v0
+    paths:
+    - /petstore
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: true
+  write_timeout: 60000
+- connect_timeout: 60000
+  enabled: true
+  host: webhook.site
+  name: webhook
+  path: /68edeaf0-562f-4299-9e05-165443a75ced
+  port: 443
+  protocol: https
+  read_timeout: 60000
+  retries: 5
+  routes:
+  - https_redirect_status_code: 426
+    name: test
+    path_handling: v0
+    paths:
+    - /test
+    preserve_host: false
+    protocols:
+    - http
+    - https
+    regex_priority: 0
+    request_buffering: true
+    response_buffering: true
+    strip_path: true
+  write_timeout: 60000
