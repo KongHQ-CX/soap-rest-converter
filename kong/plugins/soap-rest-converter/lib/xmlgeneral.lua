@@ -246,9 +246,18 @@ function xmlgeneral.sendAuthData(plugin_conf, authData, request_body_transformed
 
   if auth_types_upstream[authToUpstream] and authData ~= nil then
     if authToUpstream == "xPath" then
-      if type(authData) == "table" then
-        request_body_transformed, errMessage = xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[1], plugin_conf.XPathRegisterNs, authData[1])
-        request_body_transformed, errMessage= xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[2], plugin_conf.XPathRegisterNs, authData[2])
+      if type(authData) == "table" and #authData == 2  then
+        local new_xml
+        new_xml, errMessage = xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[1], plugin_conf.XPathRegisterNs, authData[1])
+        if new_xml then
+          new_xml, errMessage= xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[2], plugin_conf.XPathRegisterNs, authData[2])
+        end
+
+        if errMessage then
+          errMessage = "error when replacing placeholders, err: " .. errMessage
+        else
+          request_body_transformed = new_xml
+        end
       else
         request_body_transformed, errMessage = xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[1], plugin_conf.XPathRegisterNs, authData[1])
       end
@@ -471,7 +480,7 @@ function xmlgeneral.XPathContent (kong, XMLtoSearch, XPath, XPathRegisterNs, new
           XpathContent = nodeContent
         else
           kong.log.debug ("No XPathContent found") 
-          return nil, "No XPathContent found" 
+          return nil, "No XPathContent found for " .. XPath 
         end
 
         if newValue then
@@ -482,11 +491,11 @@ function xmlgeneral.XPathContent (kong, XMLtoSearch, XPath, XPathRegisterNs, new
         end
     else
       kong.log.debug ("XPathContent, object.nodesetval is null")  
-      return nil, "XPathContent, object.nodesetval is null" 
+      return nil, "XPathContent, object.nodesetval is null for " .. XPath 
     end
   else
     kong.log.debug ("XPathContent, object is null")
-    return nil, "XPathContent, object is null" 
+    return nil, "XPathContent, object is null for " .. XPath
   end
 
   -- Clean up

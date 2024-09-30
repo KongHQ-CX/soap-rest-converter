@@ -253,8 +253,10 @@ In a similar way is it possible to send these data via the Header or the Xpath t
 ### How to extract Xpath credentials from a SOAP requet and forward to the REST request:
 
 To extract the credentials in the following request just configure the plugin with:
-- `RequestAuthorizationLocation` property with XPath
+- `RequestAuthorizationLocation` property with `XPath`
 - `RequestAuthorizationXPath` with `//wsse:Username` and `//wsse:Password`
+- `ResponseAuthorizationLocation` with `Header`
+- `ResponseAuthorizationHeader` with `Authorization`
 
 If you pass:
 - 1 xPaths the plugin will forward it to the `ResponseAuthorizationHeader`
@@ -287,33 +289,26 @@ If you pass:
 ### How to extract credentials from a REST requet and forward to the SOAP request:
 
 To extract the credentials in the following request just configure the plugin with:
-- `RequestAuthorizationLocation` property with Header
-- `RequestAuthorizationHeader` with corresponding header
+- `RequestAuthorizationLocation` property with `Header`
+- `RequestAuthorizationXPath` with `Authorization`
+- `ResponseAuthorizationLocation` with `Xpath`
+- `ResponseAuthorizationXPath` with  `//wsse:Username` and `//wsse:Password`
 
 If you pass:
-- 1 xPaths the plugin will forward it to the `ResponseAuthorizationHeader`
-- 2 xPaths the plugin will automatically convert them to Basic in the `ResponseAuthorizationHeader`.
+- Bearer the plugin will forward it to the `ResponseAuthorizationXPath`
+- Basic headers, the plugin will automatically convert them to corresponding xPaths provided in `ResponseAuthorizationXPath`.
 
-```xml
-<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:pet="http://example.com/petstore" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
-    <soapenv:Header>
-        <wsse:Security>
-            <wsse:UsernameToken>
-                <wsse:Username>LOGIN</wsse:Username>
-                <wsse:Password>PASSWORD</wsse:Password>
-            </wsse:UsernameToken>
-        </wsse:Security>
-    </soapenv:Header>
-    <soapenv:Body>
-        <pet:AddPet>
-            <pet:name>doggie</pet:name>
-            <pet:photoUrls>
-                <pet:url>http://test.com/images</pet:url>
-            </pet:photoUrls>
-            <pet:status>available</pet:status>
-        </pet:AddPet>
-    </soapenv:Body>
-</soapenv:Envelope>
+```
+Content-Type: text/xml; charset=utf-8
+Authorization: Basic TE9HSU46UEFTU1dPUkQ=
+...
+```
+```json
+{
+  "operation": "Add",
+  "intA": 50,
+  "intB": 10
+}
 ```
 
 
