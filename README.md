@@ -44,7 +44,7 @@ Each handling is optional. In case of misconfiguration the Plugin sends to the c
 |config.ExternalDataCacheTTL|FALSE|300|The TTL in seconds to keep the xstl template in cache|
 |config.ExternalDataTimeout|FALSE|300|The timeout in second for the request retrieving the xstl template|
 |config.ErrorXPath|FALSE|N/A|The xPath to check if soap request is returning an error even with status code 200|
-|config.RouteXPathRegisterNs|FALSE|N/A|Register Namespace to enable XPath request. The syntax is `name,namespace`. Mulitple entries are allowed (example: `name1,namespace1,name2,namespace2`)|
+|config.XPathRegisterNs|FALSE|N/A|Register Namespace to enable XPath request. The syntax is `name,namespace`. Mulitple entries are allowed (example: `name1,namespace1,name2,namespace2`)|
 |config.VerboseError|FALSE|N/A|enable a detailed error message sent to the consumer. The syntax is `<detail>...</detail>` in the `<soap:Fault>` message|
 
 
@@ -98,7 +98,12 @@ Content-Type:"text/xml; charset=utf-8" \
 </soap:Envelope>'
 ```
 
-The expected result is `12`:
+The expected `XML` response is:
+```
+HTTP/1.1 200 OK
+Content-Type: text/xml; charset=utf-8
+...
+```
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" ...>
@@ -117,25 +122,21 @@ The `soap-rest-converter` is in charge of transforming the JSON request to a SOA
 
 1) Add `soap-rest-converter` plugin to `calculator` and configure the plugin with:
 - `VerboseRequest` enabled
-- `XsltTransformRequest` property with the url `https://raw.githubusercontent.com/KongHQ-CX/soap-rest-converter/refs/heads/main/examples/calculator-json-to-xml` hosting the `XSLT 3.0` definition to convert the json to xml
-- `XsltTransformResponse` property with the url `https://raw.githubusercontent.com/KongHQ-CX/soap-rest-converter/refs/heads/main/examples/calculator-xml-to-json` hosting the `XSLT 3.0` definition to convert the xml to json
+- `XsltTransformRequest` property with the url `https://raw.githubusercontent.com/KongHQ-CX/soap-rest-converter/refs/heads/main/examples/calculator-json-to-xml.xslt` hosting the `XSLT 3.0` definition to convert the json to xml
+- `XsltTransformResponse` property with the url `https://raw.githubusercontent.com/KongHQ-CX/soap-rest-converter/refs/heads/main/examples/calculator-xml-to-json.xslt` hosting the `XSLT 3.0` definition to convert the xml to json
 
 5) Call the `calculator` through the Kong Gateway Route,  with a `JSON` request and by setting the operation to `Add`
-```sh
-http -v POST http://localhost:8000/calculator operation=Add intA:=50 intB:=10
 ```
+http POST http://localhost:8000/calculator \
+Content-Type:"application/json; charset=utf-8" \
+--raw '{
+  "operation": "Add",
+  "intA": "50",
+  "intB": "10"
+}'
 ```
-Content-Type: application/json
-...
-```
-```json
-{
-    "intA": 50,
-    "intB": 10,
-    "operation": "Add"
-}
-```
-The expected `JSON` response is `60`:
+
+The expected `JSON` response is:
 ```
 HTTP/1.1 200 OK
 Content-Type: application/json
@@ -146,6 +147,7 @@ Content-Type: application/json
     "result": 60
 }
 ```
+
 You can change operation to the following values:
 - `Subtract`
 - `Divide`
@@ -173,7 +175,7 @@ Content-Type:"application/json; charset=utf-8" \
 }'
 ```
 
-The expected result is:
+The expected `JSON` response is:
 ```
 HTTP/1.1 200 OK
 Content-Type: application/json; charset=utf-8
@@ -198,8 +200,8 @@ The `soap-rest-converter` is in charge of transforming the SOAP/XML request to a
 
 1) Add `soap-rest-converter` plugin to `calculator` and configure the plugin with:
 - `VerboseRequest` enabled
-- `XsltTransformRequest` property with the url `https://raw.githubusercontent.com/KongHQ-CX/soap-rest-converter/refs/heads/main/examples/petstore-xml-to-json` hosting the `XSLT 3.0` definition to convert the json to xml
-- `XsltTransformResponse` property with the url `https://raw.githubusercontent.com/KongHQ-CX/soap-rest-converter/refs/heads/main/examples/petstore-json-to-xml` hosting the `XSLT 3.0` definition to convert the xml to json
+- `XsltTransformRequest` property with the url `https://raw.githubusercontent.com/KongHQ-CX/soap-rest-converter/refs/heads/main/examples/petstore-xml-to-json.xslt` hosting the `XSLT 3.0` definition to convert the json to xml
+- `XsltTransformResponse` property with the url `https://raw.githubusercontent.com/KongHQ-CX/soap-rest-converter/refs/heads/main/examples/petstore-json-to-xml.xslt` hosting the `XSLT 3.0` definition to convert the xml to json
 
 5) Call the `petstore` through the Kong Gateway Route,  with a `XML` request
 ```
@@ -228,21 +230,91 @@ Content-Type: text/xml; charset=utf-8
 ...
 ```
 ```xml
+<?xml version="1.0" encoding="UTF-8"?>
 <soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:pet="http://example.com/petstore">
-   <soapenv:Header/>
    <soapenv:Body>
-      <pet:AddPet>
-         <pet:name>doggie</pet:name>
-         <pet:photoUrls>
-            <pet:url>http://test.com/images</pet:url>
-         </pet:photoUrls>
-         <pet:status>available</pet:status>
-      </pet:AddPet>
+      <pet:identification>9223372036854775807</pet:identification>
+      <pet:name>doggie</pet:name>
+      <pet:photoUrls>
+         <pet:url>http://test.com/images</pet:url>
+      </pet:photoUrls>
    </soapenv:Body>
 </soapenv:Envelope>
 ```
 
 **More explanation on the xlst template and transformation could be found [here!](/SAXON.md#behind-the-scenes-of-fnjson-to-xml-and-fnxml-to-json-functions)**
+
+## Configure the `Authentication` in the plugin
+
+The plugin is able to extract credentials from the Header of the Xpath from XML request.
+In a similar way is it possible to send these data via the Header or the Xpath to a SOAP services.
+
+### How to extract Xpath credentials from a SOAP requet and forward to the REST request:
+
+To extract the credentials in the following request just configure the plugin with:
+- `RequestAuthorizationLocation` property with XPath
+- `RequestAuthorizationXPath` with `//wsse:Username` and `//wsse:Password`
+
+If you pass:
+- 1 xPaths the plugin will forward it to the `ResponseAuthorizationHeader`
+- 2 xPaths the plugin will automatically convert them to Basic in the `ResponseAuthorizationHeader`.
+
+```xml
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:pet="http://example.com/petstore" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+    <soapenv:Header>
+        <wsse:Security>
+            <wsse:UsernameToken>
+                <wsse:Username>LOGIN</wsse:Username>
+                <wsse:Password>PASSWORD</wsse:Password>
+            </wsse:UsernameToken>
+        </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+        <pet:AddPet>
+            <pet:name>doggie</pet:name>
+            <pet:photoUrls>
+                <pet:url>http://test.com/images</pet:url>
+            </pet:photoUrls>
+            <pet:status>available</pet:status>
+            <pet:status>available</pet:status>
+        </pet:AddPet>
+    </soapenv:Body>
+</soapenv:Envelope>
+```
+
+
+### How to extract credentials from a REST requet and forward to the SOAP request:
+
+To extract the credentials in the following request just configure the plugin with:
+- `RequestAuthorizationLocation` property with Header
+- `RequestAuthorizationHeader` with corresponding header
+
+If you pass:
+- 1 xPaths the plugin will forward it to the `ResponseAuthorizationHeader`
+- 2 xPaths the plugin will automatically convert them to Basic in the `ResponseAuthorizationHeader`.
+
+```xml
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:pet="http://example.com/petstore" xmlns:wsse="http://docs.oasis-open.org/wss/2004/01/oasis-200401-wss-wssecurity-secext-1.0.xsd">
+    <soapenv:Header>
+        <wsse:Security>
+            <wsse:UsernameToken>
+                <wsse:Username>LOGIN</wsse:Username>
+                <wsse:Password>PASSWORD</wsse:Password>
+            </wsse:UsernameToken>
+        </wsse:Security>
+    </soapenv:Header>
+    <soapenv:Body>
+        <pet:AddPet>
+            <pet:name>doggie</pet:name>
+            <pet:photoUrls>
+                <pet:url>http://test.com/images</pet:url>
+            </pet:photoUrls>
+            <pet:status>available</pet:status>
+        </pet:AddPet>
+    </soapenv:Body>
+</soapenv:Envelope>
+```
+
 
 ## Plugins Testing
 The plugins testing is available through [pongo](https://github.com/Kong/kong-pongo)

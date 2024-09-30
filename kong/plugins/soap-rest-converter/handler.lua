@@ -1,7 +1,7 @@
 local KongGzip        = require("kong.tools.gzip")
 local sha256_hex      = require("kong.tools.sha256").sha256_hex
-local base64_encode   = require "kong.openid-connect.codec".base64.encode
 local xmlgeneral      = require("kong.plugins.soap-rest-converter.lib.xmlgeneral")
+local cjson           = require "cjson"
 
 -- handler.lua
 local plugin = {
@@ -122,7 +122,7 @@ function plugin:responseSOAPXMLhandling(plugin_conf, responseBody, contentTypeJS
   if soapFaultBody == nil and plugin_conf.ErrorXPath then
     -- Get Error By XPath and check if the condition is satisfied
     errMessage = xmlgeneral.XPathContent (kong, responseBody, 
-                                            plugin_conf.ErrorXPath, plugin_conf.RouteXPathRegisterNs)
+                                            plugin_conf.ErrorXPath, plugin_conf.XPathRegisterNs)
     -- If the condition is statisfied we return an error
     if errMessage then
       kong.log.debug("ErrorXPath: Error return by the service upstream")
@@ -190,17 +190,24 @@ function plugin:access(plugin_conf)
   
   -- If there is no error Retrieve authentication data
   if soapFaultBody == nil then
-    authData, soapFaultBody = xmlgeneral.extractAuthData(plugin_conf)
+    authData, soapFaultBody = xmlgeneral.extractAuthData(plugin_conf, request_body)
   end
   
   -- If there is no error Send authentication data
   if soapFaultBody == nil and authData ~= nil then
-    soapFaultBody = xmlgeneral.sendAuthData(plugin_conf, authData)
+    request_body_transformed, soapFaultBody = xmlgeneral.sendAuthData(plugin_conf, authData, request_body_transformed)
   end
 
   -- If there is an error during SOAP/XML we change the HTTP status code and
   -- the Body content (with the detailed error message) will be changed by 'body_filter' phase
   if soapFaultBody ~= nil then
+    -- Set the Global Fault Code to the "Request and Response SOAP/XML handling" plugins 
+    -- It prevents to apply other XML/SOAP handling whereas there is already an error
+    kong.ctx.shared.restSoapHandlingFault = {
+      error = true,
+      soapEnvelope = soapFaultBody
+    }
+
     -- Return a Fault code to Client
     return xmlgeneral.returnSoapFault (plugin_conf,
                                       xmlgeneral.HTTPCodeSOAPFault,
@@ -218,7 +225,7 @@ function plugin:access(plugin_conf)
   if kong.ctx.shared.contentTypeJSON.request == true then
     kong.service.request.set_header("Content-Type", xmlgeneral.XMLContentType)
   else
-    kong.service.request.set_header("Content-Type", xmlgeneral.JsonContentType)
+    kong.service.request.set_header("Content-Type", xmlgeneral.JSONContentType)
   end
 
   -- If http version is 'HTTP/2' the enable_buffering doesn't work so the 'soap-xml-response-handling' 
@@ -266,7 +273,7 @@ function plugin:header_filter(plugin_conf)
           kong.response.get_source()  == "error") then
     if kong.ctx.shared.contentTypeJSON.request == true then
       kong.log.debug("A pending error has been set by other plugin or by the Service itself")
-      kong.response.set_header("Content-Type", xmlgeneral.JsonContentType)
+      kong.response.set_header("Content-Type", xmlgeneral.JSONContentType)
       return
     else
       kong.log.debug("A pending error has been set by other plugin or by the Service itself: we format the error messsage in SOAP/XML Fault")
@@ -314,7 +321,18 @@ function plugin:header_filter(plugin_conf)
     -- Handle all SOAP/XML topics of the Response: XSLT before, XSD validation and XSLT After
     responseBodyTransformed, soapFaultBody = plugin:responseSOAPXMLhandling (plugin_conf, responseBody, kong.ctx.shared.contentTypeJSON.request)
   else
-    err = "Error received from the upstream: "
+    err = "Error received from the upstream - "
+
+    if plugin_conf.VerboseError and plugin_conf.ErrorXPath then
+      -- Get Error By XPath and check if the condition is satisfied
+      local ErrorXPath = xmlgeneral.XPathContent (kong, responseBody, 
+                                              plugin_conf.ErrorXPath, plugin_conf.XPathRegisterNs)
+
+      if ErrorXPath then
+        err = err .. "Error from declared xPath is " .. cjson.encode(ErrorXPath) .. "-"
+      end
+  end
+
     soapFaultBody = xmlgeneral.formatSoapFault (plugin_conf.VerboseError,
                                                   xmlgeneral.ResponseTextError .. xmlgeneral.SepTextError .. xmlgeneral.GeneralError,
                                                   err,
@@ -323,7 +341,7 @@ function plugin:header_filter(plugin_conf)
 
   -- If there is a XML -> JSON transformation on the Response: change the 'Content-Type' header of the Response
   if kong.ctx.shared.contentTypeJSON.request == true then
-    kong.response.set_header("Content-Type", xmlgeneral.JsonContentType)
+    kong.response.set_header("Content-Type", xmlgeneral.JSONContentType)
   else
     kong.response.set_header("Content-Type", xmlgeneral.XMLContentType)
   end
@@ -387,12 +405,6 @@ end
 -- This function can be called multiple times
 ------------------------------------------------------------------------------------------------------------------
 function plugin:body_filter(plugin_conf)
-  -- In case of error set in previous phases, we don't do anything to avoid an issue.
-  if kong.ctx.shared.restSoapHandlingFault and kong.ctx.shared.restSoapHandlingFault.error then
-    kong.log.debug("A pending error has been set in previous phases: we do nothing in this phase")
-    return
-  end
-
   -- Get modified SOAP envelope set by the plugin itself on 'header_filter'
   if kong.ctx.shared.restSoapHandlingFault and kong.ctx.shared.restSoapHandlingFault.soapEnvelope then
     -- Set the modified SOAP envelope

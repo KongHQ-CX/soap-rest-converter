@@ -5,6 +5,7 @@ local xmlua             = require("xmlua")
 local ffi               = require("ffi")
 local libxml2           = require("xmlua.libxml2")
 local libsaxon4kong     = require("kong.plugins.soap-rest-converter.lib.libsaxon4kong")
+local base64     = require "kong.openid-connect.codec".base64
 
 xmlgeneral.HTTPCodeSOAPFault = 500
 
@@ -14,10 +15,7 @@ xmlgeneral.GeneralError       = "General process failed"
 xmlgeneral.SepTextError       = " - "
 xmlgeneral.XSLTError          = "XSLT transformation failed"
 xmlgeneral.XMLContentType     = "text/xml; charset=utf-8"
-xmlgeneral.JsonContentType    = "application/json"
-xmlgeneral.XMLContentTypeBody     = 1
-xmlgeneral.JSONContentTypeBody    = 2
-xmlgeneral.unknownContentTypeBody = 3
+xmlgeneral.JSONContentType    = "application/json"
 
 local HTTP_ERROR_MESSAGES = {
     [400] = "Bad request",
@@ -88,7 +86,7 @@ function xmlgeneral.formatSoapFault(VerboseResponse, ErrMsg, ErrEx, contentTypeJ
       if detailErrMsg:sub(-1) ~= '.' then
         detailErrMsg = detailErrMsg .. '.'
       end
-      local additionalErrMsg = "SOAP/XML Web Service - HTTP code: " .. tostring(status)      
+      local additionalErrMsg = "Server - HTTP code: " .. tostring(status)      
       detailErrMsg = detailErrMsg .. " " .. additionalErrMsg
     end
   end
@@ -131,7 +129,7 @@ end
 -----------------------------------------------------
 -- Add the HTTP Error code to the SOAP Fault message
 -----------------------------------------------------
-function xmlgeneral.addHttpErorCodeToSoapFault(VerboseResponse, contentTypeJSON)
+function xmlgeneral.addHttpErrorCodeToSoapFault(VerboseResponse, contentTypeJSON)
   local soapFaultBody
   
   local msg = HTTP_ERROR_MESSAGES[kong.response.get_status()]
@@ -189,7 +187,7 @@ end
 ----------------------------------------------------------------
 -- Return the credentials extracted from the request
 ----------------------------------------------------------------
-function xmlgeneral.extractAuthData(plugin_conf)
+function xmlgeneral.extractAuthData(plugin_conf, request_body)
   local errMessage
   local authData
   local authToExtract = plugin_conf.RequestAuthorizationLocation
@@ -198,7 +196,7 @@ function xmlgeneral.extractAuthData(plugin_conf)
   if auth_types_extract[authToExtract] then
     if authToExtract == "xPath" then
       authData = xmlgeneral.retrieveAuthDataFromXPath (kong, request_body, 
-                                            plugin_conf.RequestAuthorizationXPath, plugin_conf.RouteXPathRegisterNs)
+                                            plugin_conf.RequestAuthorizationXPath, plugin_conf.XPathRegisterNs)
       if #authData ~= #plugin_conf.RequestAuthorizationXPath then
         errMessage = "Some Xpath not Found"
       end
@@ -206,6 +204,22 @@ function xmlgeneral.extractAuthData(plugin_conf)
       authData = kong.request.get_header(plugin_conf.RequestAuthorizationHeader)
       if authData == nil then
         errMessage = "no data found in header " .. plugin_conf.RequestAuthorizationHeader
+      end
+
+      -- Check if authData starts with "Basic"
+      if authData and authData:sub(1, 6) == "Basic " then
+        -- Remove the "Basic " prefix
+        local encoded_credentials = authData:sub(7)
+        
+        -- Decode the Base64-encoded string
+        local decoded_credentials = base64.decode(encoded_credentials)
+        
+        -- Split the credentials into login and password
+        local login, password = decoded_credentials:match("([^:]+):(.+)")
+        authData = {
+          [1] = login,
+          [2] = password
+        }
       end
     end
 
@@ -225,7 +239,7 @@ end
 ----------------------------------------------------------------
 -- Send the credentials extracted from the request
 ----------------------------------------------------------------
-function xmlgeneral.sendAuthData(plugin_conf, authData)
+function xmlgeneral.sendAuthData(plugin_conf, authData, request_body_transformed)
   local errMessage
   local authToUpstream = plugin_conf.ResponseAuthorizationLocation
   local auth_types_upstream = { header = true, xsltTemplate = true }
@@ -233,26 +247,16 @@ function xmlgeneral.sendAuthData(plugin_conf, authData)
   if auth_types_upstream[authToUpstream] and authData ~= nil then
     if authToUpstream == "xsltTemplate" then
       if type(authData) == "table" then
-        local check1
-        local check2
-        request_body_transformed, check1 = request_body_transformed:gsub("$AUTH1", authData[1])
-        request_body_transformed, check2 = request_body_transformed:gsub("$AUTH2", authData[2])
-        if check1 + check2 ~= 2 then
-          errMessage = "$AUTH1 or $AUTH2 placeholders not found in the xslt template, please check!"
-        end
+        request_body_transformed, errMessage = xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[1], plugin_conf.XPathRegisterNs, authData[1])
+        request_body_transformed, errMessage= xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[2], plugin_conf.XPathRegisterNs, authData[2])
       else
-        local check
-        request_body_transformed, check = request_body_transformed:gsub("$AUTH1", authData)
-        if check == 0 then
-          errMessage = "$AUTH1 placeholder not found in the xslt template, please check!"
-        end
+        request_body_transformed, errMessage = xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[1], plugin_conf.XPathRegisterNs, authData[1])
       end
-
     end
 
     if authToUpstream == "header" then
       if #authData == 2 then
-        authData = "Basic " .. base64_encode(authData[1] .. ":" .. authData[2])
+        authData = "Basic " .. base64.encode(authData[1] .. ":" .. authData[2])
       end
 
       kong.service.request.set_header(plugin_conf.ResponseAuthorizationHeader, authData)
@@ -262,11 +266,13 @@ function xmlgeneral.sendAuthData(plugin_conf, authData)
   if errMessage ~= nil and plugin_conf.FailIfAuthError then
     errMessage = "The authentication was not replaced and is mandatory! Error: " .. errMessage 
     -- Format a Fault code to Client
-    return xmlgeneral.formatSoapFault (plugin_conf.VerboseError,
+    return nil, xmlgeneral.formatSoapFault (plugin_conf.VerboseError,
                                                 xmlgeneral.RequestTextError .. xmlgeneral.SepTextError .. xmlgeneral.GeneralError,
                                                 errMessage,
                                                 contentTypeJSON)
   end
+
+  return request_body_transformed
 end
 
 ----------------------------------------------------------------
@@ -282,7 +288,7 @@ function xmlgeneral.downLoadDataFromUrl (url, timeout)
     method = 'GET',
     ssl_verify = false,
   })
-  if not res or res.status ~= 200 then
+  if err or res.status ~= 200 then
     -- We don't update the 'body' and 'httpStatus' and give the user a chance to have the cached value
     local errMsg = "Error when downloading data from " .. url .. " with status: " .. res.status
     if err then
@@ -411,9 +417,9 @@ function xmlgeneral.XSLTransform_libsaxon(plugin_conf, XMLtoTransform, XSLT, ver
 end
 
 ---------------------------------------------
--- Search a XPath and Compares it to a value
+-- Search a XPath and return its value
 ---------------------------------------------
-function xmlgeneral.XPathContent (kong, XMLtoSearch, XPath, XPathRegisterNs)
+function xmlgeneral.XPathContent (kong, XMLtoSearch, XPath, XPathRegisterNs, newValue)
   local XpathContent
   
   kong.log.debug("XPathContent, XMLtoSearch: " .. XMLtoSearch)
@@ -424,6 +430,7 @@ function xmlgeneral.XPathContent (kong, XMLtoSearch, XPath, XPathRegisterNs)
   
   if not document then
     kong.log.debug ("RouteByXPath, xmlCtxtReadMemory error, no document")
+    return nil, "no document"
   end
   
   local context = libxml2.xmlXPathNewContext(document)
@@ -455,23 +462,55 @@ function xmlgeneral.XPathContent (kong, XMLtoSearch, XPath, XPathRegisterNs)
   
   if object ~= ffi.NULL then  
     -- If we found the XPath element
-    if object.nodesetval ~= ffi.NULL and object.nodesetval.nodeNr ~= 0 then        
-        local nodeContent = libxml2.xmlNodeGetContent(object.nodesetval.nodeTab[0])
+    if object.nodesetval ~= ffi.NULL and object.nodesetval.nodeNr ~= 0 then
+        local node = object.nodesetval.nodeTab[0]
+        local nodeContent = libxml2.xmlNodeGetContent(node)
         kong.log.debug("libxml2.xmlNodeGetContent: " .. nodeContent)
         if nodeContent then
           kong.log.debug ("XPathContent found: " .. nodeContent)
           XpathContent = nodeContent
         else
-          kong.log.debug ("No XPathContent found")  
+          kong.log.debug ("No XPathContent found") 
+          return nil, "No XPathContent found" 
+        end
+
+        if newValue then
+          libxml2.xmlNodeSetContent(node, newValue, #newValue)
+          local newXML = xmlgeneral.to_xml(document)
+          kong.log.debug("Replaced content at XPath: " .. XPath .. " with value: " .. newValue)
+          XpathContent = newXML
         end
     else
       kong.log.debug ("XPathContent, object.nodesetval is null")  
+      return nil, "XPathContent, object.nodesetval is null" 
     end
   else
     kong.log.debug ("XPathContent, object is null")
+    return nil, "XPathContent, object is null" 
   end
 
+  -- Clean up
+  ffi.gc(object, libxml2.xmlXPathFreeObject)
+  ffi.gc(context, libxml2.xmlXPathFreeContext)
+  ffi.gc(document, libxml2.xmlFreeDoc)
+
   return XpathContent
+end
+
+
+--------------------------
+-- Dump a document to XML
+--------------------------
+function xmlgeneral.to_xml(document)
+  local buffer = libxml2.xmlBufferCreate()
+  local context = libxml2.xmlSaveToBuffer(buffer,
+                                          "UTF-8",
+                                          bit.bor(ffi.C.XML_SAVE_FORMAT,
+                                                  ffi.C.XML_SAVE_NO_DECL,
+                                                  ffi.C.XML_SAVE_AS_XML))
+  libxml2.xmlSaveDoc(context, document)
+  libxml2.xmlSaveClose(context)
+  return libxml2.xmlBufferGetContent(buffer)
 end
 
 ---------------------------------------------
