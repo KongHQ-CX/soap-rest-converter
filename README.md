@@ -66,7 +66,7 @@ git clone https://github.com/jeromeguillaume/kong-plugin-soap-xml-handling.git
 ```
 
 5) Check that the plugin is present
- <img src="/images/Kong-Manager.png?raw=true" alt="Kong - Manager" width="400px" height="400px">
+ <img src="/images/Kong-Manager.png?raw=true" alt="Kong - Manager" width="400px">
 
 
 ## Other Deployements
