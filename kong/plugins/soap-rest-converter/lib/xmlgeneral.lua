@@ -246,20 +246,20 @@ function xmlgeneral.sendAuthData(plugin_conf, authData, request_body_transformed
 
   if auth_types_upstream[authToUpstream] and authData ~= nil then
     if authToUpstream == "xPath" then
+      local new_xml
       if type(authData) == "table" and #authData == 2  then
-        local new_xml
         new_xml, errMessage = xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[1], plugin_conf.XPathRegisterNs, authData[1])
         if new_xml then
-          new_xml, errMessage= xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[2], plugin_conf.XPathRegisterNs, authData[2])
-        end
-
-        if errMessage then
-          errMessage = "error when replacing placeholders, err: " .. errMessage
-        else
-          request_body_transformed = new_xml
+          new_xml, errMessage= xmlgeneral.XPathContent(kong, new_xml, plugin_conf.ResponseAuthorizationXPath[2], plugin_conf.XPathRegisterNs, authData[2])
         end
       else
-        request_body_transformed, errMessage = xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[1], plugin_conf.XPathRegisterNs, authData[1])
+        new_xml, errMessage = xmlgeneral.XPathContent(kong, request_body_transformed, plugin_conf.ResponseAuthorizationXPath[1], plugin_conf.XPathRegisterNs, authData)
+      end
+
+      if errMessage then
+        errMessage = "error when replacing placeholders, err: " .. errMessage
+      else
+        request_body_transformed = new_xml
       end
     end
 
