@@ -4,9 +4,9 @@ Both GNOME C and XMLua/libxml2 libraries are already included in [kong/kong-gate
 
 The XSLT Transformation is managed with the [saxon](https://www.saxonica.com/html/welcome/welcome.html) library, which supports XSLT 2.0 and 3.0. With XSLT 2.0+ there is a way for applying JSON <-> XML transformation with [fn:json-to-xml](https://www.w3.org/TR/xslt-30/#func-json-to-xml) and [fn:xml-to-json](https://www.w3.org/TR/xslt-30/#func-xml-to-json). The saxon library is not included in the Kong Docker image, see [SAXON.md](SAXON.md) for how to integrate saxon with Kong.
 
-These plugins don't apply to Kong OSS. They work for Kong EE and Konnect.
+This plugins doesn't apply to Kong OSS. It works for Kong EE and Konnect.
 
-The plugins handle the **Soap to Rest**  and the **Rest to Soap** conversion:
+The plugin handle the **Soap to Rest**  and the **Rest to Soap** conversion:
 
 **soap-2-rest**:
 
@@ -23,6 +23,7 @@ The plugins handle the **Soap to Rest**  and the **Rest to Soap** conversion:
 4) `ERROR CHEKCING`: check the error depending of XPath
 
 Each handling is optional. In case of misconfiguration the Plugin sends to the consumer an HTTP 500 Internal Server Error `<soap:Fault>` (with the error detailed message).
+
 
 ![Alt text](/images/Kong-Manager.png?raw=true "Kong - Manager")
 
@@ -63,6 +64,10 @@ git clone https://github.com/jeromeguillaume/kong-plugin-soap-xml-handling.git
 ```sh
 ./start-kong.sh
 ```
+
+5) Check that the plugin is present
+ <img src="/images/Kong-Manager.png?raw=true" alt="Kong - Manager" width="400px" height="400px">
+
 
 ## Other Deployements
 Please [See documentation here](https://github.com/jeromeguillaume/kong-plugin-soap-xml-handling/tree/main?tab=readme-ov-file#how-to-deploy-soapxml-handling-plugins-schema-in-konnect-control-plane-for-kong-gateway)
