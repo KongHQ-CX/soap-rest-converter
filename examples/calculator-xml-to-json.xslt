@@ -2,7 +2,9 @@
 	xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
 	xmlns="http://www.w3.org/2005/xpath-functions"
 	xmlns:fn="http://www.w3.org/2005/xpath-functions"
-	xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" xpath-default-namespace="http://tempuri.org/" exclude-result-prefixes="fn">
+	xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/"
+	xpath-default-namespace="http://tempuri.org/"
+	exclude-result-prefixes="fn">
 	<xsl:mode on-no-match="shallow-skip"/>
 	<xsl:output method="text"/>
 	<xsl:template match="/soap:Envelope/soap:Body/*[ends-with(name(), 'Response')]/*[ends-with(name(), 'Result')]">
