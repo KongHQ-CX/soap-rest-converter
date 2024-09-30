@@ -13,14 +13,14 @@ This plugins doesn't apply to Kong OSS. It works for Kong EE and Konnect.
 
 The plugin handle the **Soap to Rest**  and the **Rest to Soap** conversion:
 
-**soap-2-rest**:
+**SOAP-2-REST**:
 
 1) `XSLT TRANSFORMATION - BEFORE XSD`: Transform the XML request with XSLT (XSLTransformation) before step #2
 2) `AUTH TRANSFER`: Retrieve and pass the authentication
 3) `XSLT TRANSFORMATION - AFTER XSD`: Transform the XML request with XSLT (XSLTransformation) after step #2
 4) `ERROR CHEKCING`: check the error depending of XPath
 
-**rest-2-soap**:
+**REST-2-SOAP**:
 
 1) `XSLT TRANSFORMATION - BEFORE XSD`: Transform the XML request with XSLT (XSLTransformation) before step #2
 2) `AUTH TRANSFER`: Retrieve and pass the authentication
@@ -30,7 +30,7 @@ The plugin handle the **Soap to Rest**  and the **Rest to Soap** conversion:
 Each handling is optional. In case of misconfiguration the Plugin sends to the consumer an HTTP 500 Internal Server Error `<soap:Fault>` (with the error detailed message).
 
 
-## configuration references
+## Configuration references
 |FORM PARAMETER                 |REQUIRE          |DEFAULT          |DESCRIPTION                                                 |
 |:------------------------------|:----------------|:----------------|:-----------------------------------------------------------|
 |config.xsltTransformRequest|TRUE|N/A|`XSLT` template used by `Saxon` to tranform the request|
