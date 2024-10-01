@@ -245,6 +245,15 @@ Content-Type: text/xml; charset=utf-8
 
 **More explanation on the xlst template and transformation could be found [here!](/SAXON.md#behind-the-scenes-of-fnjson-to-xml-and-fnxml-to-json-functions)**
 
+## How to prepare the `XSLT` templates
+
+You can find some examples in the [examples](/examples/) directory or in the plugin [soap-xml-handling](https://github.com/jeromeguillaume/kong-plugin-soap-xml-handling/tree/main/_tmp.xslt.transformation)
+
+You can use the generic `XSLT` templates for basic conversion, depending on the complexity of your object you may need to edit the templates to match your use cases.
+
+** You can use ChatGpt for helping you in adapting the `XSLT` templates :) **
+
+
 ## Configure the `Authentication` in the plugin
 
 The plugin is able to extract credentials from the Header of the Xpath from XML request.
