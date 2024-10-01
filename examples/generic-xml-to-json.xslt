@@ -14,8 +14,8 @@
 	<xsl:template name="convert-json">
 	    <xsl:for-each select="*">
 	        <xsl:choose>
-	        		<xsl:when test="local-name() = 'parametre'">
-	        			 <xsl:variable name="parametreName" select="./*[local-name() = 'nom']" />
+	        	<xsl:when test="local-name() = 'parametre'">
+	        		<xsl:variable name="parametreName" select="./*[local-name() = 'nom']" />
                     <xsl:variable name="parametreValue" select="./*[local-name() = 'valeur']" />
                     <!-- Use position() to make the key unique -->
                     <string key="{$parametreName}">
