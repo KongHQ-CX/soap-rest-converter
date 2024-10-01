@@ -2,7 +2,7 @@
 <xsl:stylesheet xmlns:xsl="http://www.w3.org/1999/XSL/Transform" xmlns="http://www.w3.org/2005/xpath-functions" xmlns:fn="http://www.w3.org/2005/xpath-functions" xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/" version="3.0" exclude-result-prefixes="fn">
    <xsl:mode on-no-match="shallow-skip" />
    <xsl:output method="text" />
-   <xsl:template match="*:Body//*:return">
+   <xsl:template match="*:Body//*:MUST_BE_REPLACED">
       <xsl:variable name="json-result">
          <map>
             <xsl:call-template name="convert-json" />
