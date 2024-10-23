@@ -132,10 +132,12 @@ http POST http://localhost:8000/calculator \
 Content-Type:"application/json; charset=utf-8" \
 --raw '{
   "operation": "Add",
-  "intA": "50",
-  "intB": "10"
+  "intA": 50,
+  "intB": 10
 }'
 ```
+
+**Make sure to use integer 50 and not string "50"!**
 
 The expected `JSON` response is:
 ```
