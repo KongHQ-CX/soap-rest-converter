@@ -172,7 +172,7 @@ end
 -- Return true if the contentType is JSON type, false otherwise
 ----------------------------------------------------------------
 function xmlgeneral.compareToJSONType (contentType)
-  return contentType == 'application/json' or contentType == 'application/vnd.api+json'
+  return string.match(contentType, '^application/json') ~= nil or contentType == 'application/vnd.api+json'
 end
 
 ----------------------------------------------------------------
